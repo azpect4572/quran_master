@@ -1,0 +1,1346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ surah.surah_name }} - Quran Master</title>
+
+    <!-- "Amiri Quran" - free, open-source Naskh typeface designed specifically
+         for Uthmani-script Quranic text, matching the traditional Mushaf look.
+         Used only on .ayah-text below, not applied site-wide. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Amiri+Quran&display=swap" rel="stylesheet">
+
+    <style>
+        /* same palette/fonts as home.html and surah_selection.html, so this page matches the site's visual style */
+        :root {
+            --indigo: #6366f1;
+            --indigo-dark: #4f46e5;
+            --blue-dark: #1d3f8a;
+            --lavender-bg: #eef1fb;
+            --lavender-border: #dcdff2;
+            --grey-text: #6b7280;
+            --page-bg: #f4f5fa;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        /* html/body are pinned to exactly the viewport height, with overflow: hidden
+           on body so the page itself can never scroll - only .ayah-list (the one
+           element inside .container that actually needs its own scrollbar) does.
+           This removes the earlier two-scrollbar conflict (outer page scroll vs.
+           the Ayah list's own internal scroll) entirely, rather than trying to keep
+           the two in sync. */
+        html, body {
+            height: 100%;
+            margin: 0;
+        }
+
+        body {
+            overflow: hidden;
+            background: var(--page-bg);
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        /* everything sits in a centred, max-width column - same layout as surah_selection.html.
+           Fixed to the full viewport height and laid out as a vertical flexbox: the header
+           block (top bar, title, Arabic name, Ayah count) and the control bar keep their
+           natural height, while .ayah-list (flex: 1, below) takes up whatever space is left
+           and scrolls internally. overflow: hidden here is a second guard (alongside body's)
+           against the page itself ever growing a scrollbar. */
+        .container {
+            max-width: 800px;
+            height: 100vh;
+            margin: 0 auto;
+            padding: 30px 24px 20px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* top row - back link on the left, reciter dropdown on the right */
+        .top-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .back-link {
+            display: inline-block;
+            color: var(--indigo-dark);
+            font-weight: 600;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        /* groups the reciter dropdown and the settings cog together on the right
+           side of .top-bar (which is itself justify-content: space-between), so
+           both sit "in line with Change Reciter" as one right-aligned cluster
+           rather than being spaced apart by space-between across 3 items */
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        /* ---------- reciter dropdown, top right ---------- */
+        .reciter-picker {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .reciter-picker label {
+            color: var(--grey-text);
+            font-size: 0.85rem;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        /* styled to match the site's pill-shaped, lavender-bordered form
+           controls (same look as the search input on surah_selection.html) */
+        #reciterSelect {
+            padding: 10px 16px;
+            font-size: 0.9rem;
+            font-family: inherit;
+            color: var(--blue-dark);
+            border: 1.5px solid var(--lavender-border);
+            background: var(--lavender-bg);
+            border-radius: 999px;
+            cursor: pointer;
+        }
+
+        #reciterSelect:focus {
+            outline: none;
+            border-color: var(--indigo);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+        }
+
+        /* ---------- settings cog + Play Full Surah panel, top right ---------- */
+        /* position: relative anchors .settings-panel (absolute) to this wrapper,
+           rather than to the page, so the panel opens right under the cog icon
+           instead of a full-page modal */
+        .settings-menu {
+            position: relative;
+        }
+
+        /* round icon button, same lavender-pill language as #reciterSelect next to
+           it (same border colour, background, radius) so it reads as part of the
+           same control cluster rather than a separate element */
+        .settings-cog-btn {
+            position: relative;
+            width: 40px;
+            height: 40px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            line-height: 1;
+            color: var(--blue-dark);
+            border: 1.5px solid var(--lavender-border);
+            background: var(--lavender-bg);
+            border-radius: 999px;
+            cursor: pointer;
+        }
+
+        .settings-cog-btn:hover {
+            border-color: var(--indigo);
+        }
+
+        /* small dot on the cog's corner, shown only while auto-play is running -
+           toggled via JS, not tied to the panel's own open/closed state */
+        .autoplay-indicator-dot {
+            display: none;
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: #15803d;
+            border: 1.5px solid #ffffff;
+        }
+
+        .autoplay-indicator-dot.visible {
+            display: block;
+        }
+
+        /* popover anchored under the cog icon rather than a full-page modal -
+           same white/lavender-border/shadow/radius card language used
+           throughout the page (.controls-panel, .ayah-card, etc.) */
+        .settings-panel {
+            display: none;
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            min-width: 200px;
+            background: #ffffff;
+            border: 1px solid var(--lavender-border);
+            border-radius: 14px;
+            box-shadow: 0 4px 16px rgba(79, 70, 229, 0.08);
+            padding: 12px;
+            z-index: 20;
+        }
+
+        .settings-panel.open {
+            display: block;
+        }
+
+        /* same pill-button family as .play-btn/.stop-btn, full width within the
+           panel. Plain "Play Full Surah" state reuses the indigo of the other
+           playback controls; .active (Stop Auto-Play) switches to the same black
+           already used for .stop-btn, since black already means "stop" on this
+           page rather than introducing a new colour for it */
+        .autoplay-btn {
+            width: 100%;
+            padding: 10px 16px;
+            border: none;
+            border-radius: 999px;
+            background: var(--indigo);
+            color: #ffffff;
+            font-weight: bold;
+            font-size: 0.85rem;
+            font-family: inherit;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+
+        .autoplay-btn:hover {
+            background: var(--indigo-dark);
+        }
+
+        .autoplay-btn.active {
+            background: #000000;
+        }
+
+        .autoplay-btn.active:hover {
+            background: #262626;
+        }
+
+        /* heading - same serif font/colour as the rest of the site */
+        h1 {
+            font-family: Georgia, 'Times New Roman', serif;
+            color: var(--indigo-dark);
+            font-size: 2.2rem;
+            text-align: center;
+            margin: 0 0 6px;
+        }
+
+        /* Arabic name shown under the English heading */
+        .arabic-heading {
+            text-align: center;
+            font-size: 1.6rem;
+            color: var(--blue-dark);
+            margin: 0 0 6px;
+        }
+
+        .ayah-count {
+            text-align: center;
+            color: var(--grey-text);
+            font-weight: 600;
+            margin: 0 0 30px;
+        }
+
+        /* ---------- scrollable Ayah list ---------- */
+        /* the only element on this page that scrolls. flex: 1 makes it fill whatever
+           vertical space is left in .container's column after the header block above
+           and .control-bar below take theirs; min-height: 0 overrides flexbox's default
+           "don't shrink below content size" behaviour, which would otherwise stop this
+           from ever actually shrinking enough to need its own scrollbar. overflow-y:
+           auto then scrolls its contents internally instead of growing the page. */
+        .ayah-list {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            padding: 4px; /* small gutter so the highlighted card's border/shadow isn't clipped */
+        }
+
+        .ayah-card {
+            background: #ffffff;
+            border: 1px solid var(--lavender-border);
+            border-radius: 14px;
+            box-shadow: 0 4px 16px rgba(79, 70, 229, 0.08);
+            padding: 16px 20px;
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+        }
+
+        /* numbered circular badge, same style as the Surah number badge on the search page */
+        .ayah-number {
+            background: var(--indigo);
+            color: #ffffff;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .ayah-text {
+            font-family: 'Amiri Quran', serif;
+            font-size: 1.55rem;
+            color: #1a1a1a; /* near-black instead of the indigo/blue palette, for readable Arabic text */
+            line-height: 2;
+            text-align: right;
+            direction: rtl;
+            flex: 1;
+        }
+
+        /* ---------- highlighted "current" Ayah ---------- */
+        /* the card whose ayah_number matches the "ayah" query param gets a thicker
+           indigo border, a tinted background and a stronger shadow so it's clearly
+           distinguishable from the other cards at a glance */
+        .ayah-card.current {
+            border: 2px solid var(--indigo);
+            background: var(--lavender-bg);
+            box-shadow: 0 6px 20px rgba(79, 70, 229, 0.2);
+        }
+
+        .ayah-card.current .ayah-number {
+            background: var(--indigo-dark);
+        }
+
+        /* ---------- control bar (audio controls + Previous/Next) ---------- */
+        /* wraps .controls-panel and .nav-row. Now just a normal (non-flex-growing) child
+           at the bottom of .container's flex column, so it's naturally pinned below
+           .ayah-list without needing position: sticky/fixed - .container itself no longer
+           scrolls (see body/.container above), so there's no scroll position for it to
+           need pinning against. Fixed/sticky positioning was removed on purpose: combined
+           with overflow: hidden on the parent it was prone to behaving unpredictably, and
+           the flex layout already keeps it on screen at all times without it. */
+        .control-bar {
+            flex-shrink: 0;
+            background: var(--page-bg);
+            border-top: 1px solid var(--lavender-border);
+            box-shadow: 0 -4px 16px rgba(79, 70, 229, 0.08);
+            padding: 16px 0 0;
+        }
+
+        /* ---------- Previous / Next navigation ---------- */
+        .nav-row {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 24px;
+        }
+
+        .nav-btn {
+            padding: 12px 22px;
+            border-radius: 999px;
+            background: var(--indigo);
+            color: #ffffff;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 0.95rem;
+            transition: background 0.15s ease, transform 0.15s ease;
+        }
+
+        .nav-btn:hover {
+            background: var(--indigo-dark);
+            transform: translateY(-2px);
+        }
+
+        /* placeholder that keeps the remaining button pinned to its side
+           (left/right) when the other one is hidden at the first/last Ayah */
+        .nav-spacer {
+            width: 1px;
+        }
+
+        /* ---------- audio playback controls ---------- */
+        /* card-style panel matching the Ayah cards, holding Play/Pause, Stop,
+           Record and Submit Recitation - a single column stack so the button
+           row sits on top and Submit Recitation sits below it, both inside
+           this one panel rather than as separate sections */
+        .controls-panel {
+            background: #ffffff;
+            border: 1px solid var(--lavender-border);
+            border-radius: 14px;
+            box-shadow: 0 4px 16px rgba(79, 70, 229, 0.08);
+            padding: 18px;
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+        }
+
+        /* row holding Play/Pause, Record and Stop side by side */
+        .controls-buttons {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 14px;
+        }
+
+        /* single Play/Pause button - same solid-indigo pill style as the
+           Previous/Next buttons, just wider since it stands alone */
+        .play-btn {
+            padding: 12px 40px;
+            border: none;
+            border-radius: 999px;
+            background: var(--indigo);
+            color: #ffffff;
+            font-weight: bold;
+            font-size: 0.95rem;
+            font-family: inherit;
+            cursor: pointer;
+            transition: background 0.15s ease, transform 0.15s ease;
+        }
+
+        .play-btn:hover {
+            background: var(--indigo-dark);
+            transform: translateY(-2px);
+        }
+
+        /* Stop button - same pill shape/size as Play/Pause, but solid black
+           so it's visually distinct from the indigo Play/Pause button */
+        .stop-btn {
+            padding: 12px 40px;
+            border: none;
+            border-radius: 999px;
+            background: #000000;
+            color: #ffffff;
+            font-weight: bold;
+            font-size: 0.95rem;
+            font-family: inherit;
+            cursor: pointer;
+            transition: background 0.15s ease, transform 0.15s ease;
+        }
+
+        .stop-btn:hover {
+            background: #262626;
+            transform: translateY(-2px);
+        }
+
+        /* Record button - solid red so it's immediately recognisable as the
+           "start recording" action, distinct from indigo (playback) and
+           black (stop). Flex layout so the pulsing dot and label line up. */
+        .record-btn {
+            padding: 12px 40px;
+            border: none;
+            border-radius: 999px;
+            background: #dc2626;
+            color: #ffffff;
+            font-weight: bold;
+            font-size: 0.95rem;
+            font-family: inherit;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.15s ease, transform 0.15s ease;
+        }
+
+        .record-btn:hover {
+            background: #b91c1c;
+            transform: translateY(-2px);
+        }
+
+        /* disabled while a recording is already in progress, so Record can't
+           be clicked a second time and start a second overlapping recording */
+        .record-btn:disabled {
+            opacity: 0.75;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* small pulsing red dot shown next to the label while recording is
+           active - hidden by default, toggled on/off from the script */
+        .recording-dot {
+            display: none;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #ffffff;
+            animation: recording-pulse 1s ease-in-out infinite;
+        }
+
+        @keyframes recording-pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.35; transform: scale(1.4); }
+        }
+
+        /* ---------- Submit Recitation ---------- */
+        /* sits inside .controls-panel, below the button row - the top border
+           gives it a subtle visual separation from Play/Pause/Stop/Record
+           without breaking it out into its own card/section */
+        .submit-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            padding-top: 16px;
+            border-top: 1px solid var(--lavender-border);
+        }
+
+        /* solid pill button, same family as the other controls - darker
+           indigo/blue so it reads as the "final" action in the row above it */
+        .submit-btn {
+            padding: 12px 40px;
+            border: none;
+            border-radius: 999px;
+            background: var(--blue-dark);
+            color: #ffffff;
+            font-weight: bold;
+            font-size: 0.95rem;
+            font-family: inherit;
+            cursor: pointer;
+            transition: background 0.15s ease, transform 0.15s ease;
+        }
+
+        .submit-btn:hover:not(:disabled) {
+            background: var(--indigo-dark);
+            transform: translateY(-2px);
+        }
+
+        /* greyed out and inert until a recording actually exists to submit */
+        .submit-btn:disabled {
+            background: var(--grey-text);
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .submit-status {
+            margin: 0;
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .submit-status.error {
+            color: #b91c1c;
+        }
+
+        /* ---------- shared rating colours ---------- */
+        /* plain colour-only classes, reused by both the per-Ayah rating label in the
+           list and the Ayah Score card below, rather than each defining its own
+           colours. "Good" and "Weak" reuse the exact green/red already used for
+           .submit-status.error above (error already used this same red), so nothing
+           new is introduced for those two; "Satisfactory" adds one amber shade in
+           the same style (a plain solid colour, similar depth/saturation) since the
+           app didn't already have one. */
+        .rating-good {
+            color: #15803d;
+        }
+
+        .rating-satisfactory {
+            color: #b45309;
+        }
+
+        .rating-weak {
+            color: #b91c1c;
+        }
+
+        /* neutral grey for an Ayah that has no stored score yet - reuses the
+           same --grey-text token already used elsewhere on the page, rather
+           than introducing a new colour, so "never attempted" reads as
+           deliberately neutral rather than as another rating band */
+        .rating-not-attempted {
+            color: var(--grey-text);
+        }
+
+        /* ---------- per-Ayah rating label, in the Ayah list ---------- */
+        /* sits opposite .ayah-number, in line with .ayah-text - a small pill using
+           the matching .rating-* colour above plus a light tint of that same colour
+           as its background, so it reads as a status chip rather than plain text.
+           Each Ayah's label reflects its stored progress (see
+           ayah_progress_by_number, built in the recitation() route) on every
+           load - Weak/Satisfactory/Good for an Ayah with a stored score,
+           "Not Attempted" otherwise; a successful submission then updates
+           only that one Ayah's label via JS, leaving every other card as-is. */
+        .ayah-rating {
+            flex-shrink: 0;
+            align-self: center;
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 0.75rem;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .ayah-rating.rating-good {
+            background: rgba(21, 128, 61, 0.12);
+        }
+
+        .ayah-rating.rating-satisfactory {
+            background: rgba(180, 83, 9, 0.12);
+        }
+
+        .ayah-rating.rating-weak {
+            background: rgba(185, 28, 28, 0.12);
+        }
+
+        /* same light-tint-of-the-text-colour treatment as the rating bands
+           above, using --grey-text's own rgb() values (107, 114, 128) */
+        .ayah-rating.rating-not-attempted {
+            background: rgba(107, 114, 128, 0.12);
+        }
+
+        /* ---------- Ayah Score / Surah Score cards, side by side in the control area ---------- */
+        /* wraps both .score-card elements so they sit next to each other
+           rather than stacked - purely a layout arrangement, each card below
+           keeps its own existing chrome/spacing/colours unchanged. Each
+           card's own margin-top (below) still applies normally here, since
+           flex item margins don't collapse the way block margins do. */
+        .score-cards-row {
+            display: flex;
+            gap: 14px;
+        }
+
+        .score-cards-row .score-card {
+            flex: 1;
+        }
+
+        /* same card chrome as .controls-panel (white background, lavender border,
+           radius, shadow) so it reads as part of the same control area rather than
+           a different visual language. The Ayah Score card is shown whenever the
+           currently selected Ayah has a stored score (on load) or right after a
+           fresh submission (via JS); the Surah Score card (below) is always shown,
+           since it reflects saved data rather than something calculated in the
+           browser - both default to hidden here and are made visible inline
+           (server-rendered style attribute, or JS) only when there's something to show. */
+        .score-card {
+            display: none;
+            background: #ffffff;
+            border: 1px solid var(--lavender-border);
+            border-radius: 14px;
+            box-shadow: 0 4px 16px rgba(79, 70, 229, 0.08);
+            padding: 16px 18px;
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .score-card-title {
+            margin: 0 0 4px;
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+
+        .score-card-detail {
+            margin: 0;
+            font-size: 0.9rem;
+            color: var(--grey-text);
+        }
+
+        /* the rating/status word inside the detail line picks up its colour from
+           .rating-good/.rating-satisfactory/.rating-weak/.rating-not-attempted
+           above - bolded here so it stands out from the surrounding grey text */
+        .score-card-detail .rating-good,
+        .score-card-detail .rating-satisfactory,
+        .score-card-detail .rating-weak,
+        .score-card-detail .rating-not-attempted {
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="top-bar">
+            <a class="back-link" href="/surahs">&larr; Back to Surah Search</a>
+
+            <div class="header-right">
+                <!-- Change Reciter dropdown - one <option> per entry in the RECITERS
+                     dict passed in from the route (as "reciters"), listed by display
+                     name. reciter_key is whatever the route validated/defaulted the
+                     "reciter" query param to, so that option comes pre-selected.
+                     onchange calls changeReciter() below, which reloads this same
+                     page with the newly chosen key in the "reciter" query param -
+                     no backend audio logic exists yet, this only tracks the choice. -->
+                <div class="reciter-picker">
+                    <label for="reciterSelect">Change Reciter</label>
+                    <select id="reciterSelect" onchange="changeReciter(this.value)">
+                        {% for key, reciter in reciters.items() %}
+                        <option value="{{ key }}" {% if key == reciter_key %}selected{% endif %}>{{ reciter[0] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Settings cog + "Play Full Surah" popover. toggleSettingsPanel()
+                     opens/closes .settingsPanel; a document-level click listener
+                     (see <script> below) closes it on any click outside
+                     #settingsMenu. autoPlayIndicatorDot is shown/hidden independently
+                     of the panel's open state, purely reflecting whether auto-play
+                     is currently running (sessionStorage's "autoPlaySurah" flag). -->
+                <div id="settingsMenu" class="settings-menu">
+                    <button id="settingsCogBtn" class="settings-cog-btn" type="button"
+                            onclick="toggleSettingsPanel()" aria-label="Playback settings">
+                        &#9881;
+                        <span id="autoPlayIndicatorDot" class="autoplay-indicator-dot"></span>
+                    </button>
+
+                    <div id="settingsPanel" class="settings-panel">
+                        <button id="autoPlaySurahBtn" class="autoplay-btn" type="button"
+                                onclick="toggleAutoPlaySurah()">Play Full Surah</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <h1>{{ surah.surah_name }}</h1>
+        <div class="arabic-heading">{{ surah.arabic_name }}</div>
+        <div class="ayah-count">Total Ayahs: {{ ayahs|length }}</div>
+
+        <!-- scrollable list of Ayah cards - one per Ayah in this Surah, in order -->
+        <div class="ayah-list">
+            {% for ayah in ayahs %}
+            <!-- "current" class marks the Ayah matching the "ayah" query param passed in
+                 from the route (current_ayah_number) - Jinja adds the class conditionally
+                 via the ternary-style if-expression below -->
+            {% set progress = ayah_progress_by_number.get(ayah.ayah_number) %}
+            <div class="ayah-card{% if ayah.ayah_number == current_ayah_number %} current{% endif %}">
+                <div class="ayah-number">{{ ayah.ayah_number }}</div>
+                <div class="ayah-text">{{ ayah.arabic_text }}</div>
+                <!-- reflects this Ayah's stored progress (ayah_progress_by_number,
+                     built in the recitation() route from get_all_ayah_progress()) -
+                     its real status if it has a stored score, "Not Attempted" in
+                     neutral grey otherwise, so a never-tried verse reads differently
+                     from one that was tried and scored badly. data-ayah-number lets
+                     the submit handler below find and update only this one Ayah's
+                     label once a fresh rating comes back. -->
+                {% if progress %}
+                <div class="ayah-rating rating-{{ progress.status|lower }}" data-ayah-number="{{ ayah.ayah_number }}">{{ progress.status }}</div>
+                {% else %}
+                <div class="ayah-rating rating-not-attempted" data-ayah-number="{{ ayah.ayah_number }}">Not Attempted</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Control bar - holds the audio controls and Previous/Next together. It's the
+             last child of .container's flex column (see .control-bar above), so it sits
+             naturally pinned below .ayah-list without needing its own positioning.
+
+             Audio playback + recording controls for the currently selected Ayah, all
+             inside one panel. The <audio> element is hidden (browsers show no UI for
+             it without "controls") and just holds the src the route built via
+             build_audio_url() for this exact Surah/Ayah/reciter combo - it's the
+             reference audio that Play/Pause drives. Record starts capturing the
+             user's own microphone audio via MediaRecorder; Stop is dual-purpose (see
+             the <script> below) - it stops whichever of playback/recording is
+             currently active. Submit Recitation sits below that button row, inside
+             the same panel - it uploads recordedBlob (set once a recording has been
+             made and stopped) to the backend via POST
+             /submit_recitation/<surah_id>/<ayah_number>. Disabled until a recording
+             actually exists, since there's nothing to send before that. On success,
+             the resulting score/rating update this Ayah's label in the list above
+             and fill in the Ayah Score card below (see .score-card); on failure, an
+             error message is shown in the paragraph below the button instead. -->
+        <div class="control-bar">
+            <div class="controls-panel">
+                <div class="controls-buttons">
+                    <button id="playPauseBtn" class="play-btn" type="button" onclick="togglePlayPause()">Play</button>
+                    <button id="recordBtn" class="record-btn" type="button" onclick="startRecording()">
+                        <!-- pulsing dot, hidden until recording starts -->
+                        <span id="recordingIndicator" class="recording-dot"></span>
+                        <span id="recordLabel">Record</span>
+                    </button>
+                    <button id="stopBtn" class="stop-btn" type="button" onclick="stopAudio()">Stop</button>
+                    <audio id="ayahAudio" src="{{ audio_url }}" style="display: none;"></audio>
+                </div>
+
+                <div class="submit-panel">
+                    <button id="submitBtn" class="submit-btn" type="button" onclick="submitRecitation()" disabled>Submit Recitation</button>
+                    <p id="submitStatus" class="submit-status"></p>
+                </div>
+            </div>
+
+            <!-- Ayah Score card + Surah Score card, side by side (see .score-cards-row).
+                 Both now reflect stored progress from the database (current_ayah_progress/
+                 surah_score/surah_status, from the recitation() route) as soon as the page
+                 loads, rather than only appearing after a submission in this session -
+                 submitRecitation() below still updates both in place once a fresh result
+                 comes back, the same way it already updated the Ayah Score card before. -->
+            <div class="score-cards-row">
+                <!-- Ayah Score - shown on load if the CURRENT Ayah has a stored score
+                     (current_ayah_progress), hidden otherwise via the same display:none
+                     .score-card starts with; a submission for this Ayah always shows it. -->
+                <div id="scoreCard" class="score-card"{% if current_ayah_progress %} style="display: block;"{% endif %}>
+                    <p id="scoreCardTitle" class="score-card-title{% if current_ayah_progress %} rating-{{ current_ayah_progress.status|lower }}{% endif %}">Ayah Score: <span id="scorePercent">{% if current_ayah_progress %}{{ '%.1f'|format(current_ayah_progress.score) }}{% endif %}</span>%</p>
+                    <p class="score-card-detail">Your score: <span id="scoreFraction">{% if current_ayah_progress %}{{ '%.1f'|format(current_ayah_progress.score) }}{% endif %}</span>/100 (<span id="scoreRatingWord" class="{% if current_ayah_progress %}rating-{{ current_ayah_progress.status|lower }}{% endif %}">{% if current_ayah_progress %}{{ current_ayah_progress.status }}{% endif %}</span>)</p>
+                </div>
+
+                <!-- Surah Score - always visible, since it reflects saved data (every
+                     attempted Ayah in the Surah, via calculate_surah_score()/
+                     get_surah_status()) rather than something calculated in the browser
+                     from a single submission. surah_status_class maps the status word onto
+                     the same .rating-* colours the Ayah cards already use (SURAH_STATUS_RATING_CLASS
+                     in app.py). -->
+                <div id="surahScoreCard" class="score-card" style="display: block;">
+                    <p id="surahScoreCardTitle" class="score-card-title {{ surah_status_class }}">Surah Score: <span id="surahScorePercent">{{ '%.1f'|format(surah_score) }}</span>%</p>
+                    <p class="score-card-detail">Status: <span id="surahScoreStatusWord" class="{{ surah_status_class }}">{{ surah_status }}</span></p>
+                </div>
+            </div>
+
+            <!-- Previous / Next navigation - both just link to this same route with the
+                 "ayah" query param incremented/decremented by 1 (and "reciter" carried
+                 over unchanged, so moving between Ayahs doesn't reset the chosen
+                 reciter back to the default). No backend state is changed here - the
+                 route re-validates the requested Ayah on every load. Each link is only
+                 rendered if a valid Ayah exists on that side, so "Previous" is absent
+                 on Ayah 1 and "Next" is absent on the last Ayah.
+
+                 onclick="clearAutoPlay()" on both: a manual Previous/Next click counts
+                 as the user interrupting auto-play, so the flag is cleared before this
+                 same click navigates away (see clearAutoPlay() below) - otherwise the
+                 next page load would see the still-set flag and resume auto-playing.
+                 id="nextAyahLink" lets the auto-advance handler on 'ended' below reuse
+                 this exact href instead of rebuilding the URL itself; it's simply
+                 absent (like Next itself) on the last Ayah, which is how that handler
+                 tells it's reached the end of the Surah. -->
+            <div class="nav-row">
+                {% if current_ayah_number > 1 %}
+                <a class="nav-btn" onclick="clearAutoPlay()" href="/recitation/{{ surah.id }}?ayah={{ current_ayah_number - 1 }}&reciter={{ reciter_key }}">&larr; Previous</a>
+                {% else %}
+                <span class="nav-spacer"></span>
+                {% endif %}
+
+                {% if current_ayah_number < surah.total_ayahs %}
+                <a id="nextAyahLink" class="nav-btn" onclick="clearAutoPlay()" href="/recitation/{{ surah.id }}?ayah={{ current_ayah_number + 1 }}&reciter={{ reciter_key }}">Next &rarr;</a>
+                {% else %}
+                <span class="nav-spacer"></span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Browsers try to restore the previous scroll position automatically on
+        // reload/history navigation, which happens around load time and can run
+        // after (and override) the scrollIntoView call below. Disabling it here,
+        // as the very first thing this script does, stops that automatic
+        // restoration from fighting with the code that keeps the list positioned
+        // on the current Ayah.
+        if ('scrollRestoration' in history) {
+            history.scrollRestoration = 'manual';
+        }
+
+        // ---------- Keep the scrollable Ayah list positioned on the current Ayah ----------
+        // Next/Previous are plain links that do a full page reload with a new "ayah"
+        // query param - there's no SPA-style state carried over, so this has to be
+        // wired to run unconditionally on every fresh load, not from a click handler
+        // on those links (which wouldn't survive the reload anyway). The server
+        // re-renders which .ayah-card gets the "current" class (see the Jinja
+        // if-expression on the card above); since .ayah-list scrolls independently of
+        // the page (max-height + overflow-y: auto), a fresh render always starts that
+        // list scrolled to the top, so on every load we scroll the "current" card into
+        // view within its own container. block: 'nearest' (rather than 'center'/
+        // 'start') means this only moves the list just enough to bring the card into
+        // view, without overscrolling past it or scrolling the page/window itself. No
+        // smooth scrolling is used elsewhere in the app, so 'auto' matches.
+        //
+        // Uses window's "load" event (fires once the full page, including layout, is
+        // ready) rather than DOMContentLoaded, and the scrollIntoView call itself is
+        // wrapped in a requestAnimationFrame so it runs only after the browser has
+        // actually finished computing element positions for this navigation -
+        // calling scrollIntoView before layout has settled is a common reason it
+        // silently targets the wrong position.
+        window.addEventListener('load', function () {
+            requestAnimationFrame(function () {
+                const currentCard = document.querySelector('.ayah-card.current');
+                if (currentCard) {
+                    currentCard.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+                }
+            });
+        });
+
+        // Reloads the current recitation page with the newly chosen reciter's
+        // key in the "reciter" query param, while leaving every other query
+        // param (currently just "ayah") untouched - URLSearchParams reads the
+        // existing query string, only overwrites "reciter", then we navigate
+        // to the resulting URL. The Surah id itself is part of the path, not
+        // a query param, so it's preserved automatically.
+        function changeReciter(newReciterKey) {
+            const params = new URLSearchParams(window.location.search);
+            params.set('reciter', newReciterKey);
+            window.location.search = params.toString();
+        }
+
+        // ---------- Play/Pause toggle for the current Ayah's audio ----------
+        const ayahAudio = document.getElementById('ayahAudio');
+        const playPauseBtn = document.getElementById('playPauseBtn');
+
+        // Single button doubles as Play and Pause: audio.paused tells us which
+        // state we're in right now, so clicking always does the opposite of
+        // whatever is currently happening, and the label is updated to match.
+        function togglePlayPause() {
+            if (ayahAudio.paused) {
+                ayahAudio.play();
+                playPauseBtn.textContent = 'Pause';
+            } else {
+                ayahAudio.pause();
+                playPauseBtn.textContent = 'Play';
+            }
+        }
+
+        // "ended" fires when playback finishes on its own (reaches the end of
+        // the file) rather than via a manual pause - without this the button
+        // would be stuck showing "Pause" even though the audio has stopped.
+        ayahAudio.addEventListener('ended', function () {
+            playPauseBtn.textContent = 'Play';
+        });
+
+        // ---------- Play Full Surah (auto-play through every Ayah) ----------
+        // Next/Previous are full page reloads (see the scroll-restore comment
+        // above), which wipes out any plain JS variable the instant the page
+        // navigates - so "auto-play is running" has to live in sessionStorage
+        // instead, which survives across those reloads (and is cleared once the
+        // tab/session ends, unlike localStorage).
+        const AUTO_PLAY_KEY = 'autoPlaySurah';
+
+        const settingsMenu = document.getElementById('settingsMenu');
+        const settingsPanel = document.getElementById('settingsPanel');
+        const autoPlaySurahBtn = document.getElementById('autoPlaySurahBtn');
+        const autoPlayIndicatorDot = document.getElementById('autoPlayIndicatorDot');
+
+        // Opens/closes the popover under the cog icon. A document-level click
+        // listener below closes it on any click outside #settingsMenu; since that
+        // listener also fires for this same click (it bubbles up from the cog
+        // button, which is inside #settingsMenu), it's a no-op for this click and
+        // this toggle is the only thing that actually changes .open here.
+        function toggleSettingsPanel() {
+            settingsPanel.classList.toggle('open');
+        }
+
+        document.addEventListener('click', function (event) {
+            if (!settingsMenu.contains(event.target)) {
+                settingsPanel.classList.remove('open');
+            }
+        });
+
+        // Reflects the current auto-play state in both places it's shown: the
+        // panel button's label/colour, and the small dot on the cog icon (which
+        // stays visible even while the panel itself is closed).
+        function updateAutoPlayUI(isActive) {
+            autoPlaySurahBtn.textContent = isActive ? 'Stop Auto-Play' : 'Play Full Surah';
+            autoPlaySurahBtn.classList.toggle('active', isActive);
+            autoPlayIndicatorDot.classList.toggle('visible', isActive);
+        }
+
+        // Clears the auto-play flag and resets the panel/cog back to their normal
+        // state. Called whenever the user takes any action that should interrupt
+        // an auto-play chain in progress: toggling "Stop Auto-Play" off, pressing
+        // Stop, clicking Previous/Next, or reaching the end of the Surah.
+        function clearAutoPlay() {
+            sessionStorage.removeItem(AUTO_PLAY_KEY);
+            updateAutoPlayUI(false);
+        }
+
+        // Starts playing the current Ayah's reference audio, the same way the
+        // Play button does - kept as its own small function (rather than calling
+        // togglePlayPause()) so this doesn't depend on - or risk changing - the
+        // existing Play/Pause button's own toggle behaviour.
+        function playCurrentAyahAudio() {
+            ayahAudio.play();
+            playPauseBtn.textContent = 'Pause';
+        }
+
+        // Play Full Surah / Stop Auto-Play toggle button, inside the settings panel
+        function toggleAutoPlaySurah() {
+            if (sessionStorage.getItem(AUTO_PLAY_KEY) === 'true') {
+                clearAutoPlay();
+            } else {
+                sessionStorage.setItem(AUTO_PLAY_KEY, 'true');
+                updateAutoPlayUI(true);
+                playCurrentAyahAudio();
+            }
+        }
+
+        // If auto-play was already running before this page loaded (i.e. this
+        // load is the result of the auto-advance below navigating to the next
+        // Ayah), resume it here: start playing this Ayah's audio automatically
+        // and restore the panel/cog to their "running" state, even though the
+        // panel itself stays closed by default.
+        window.addEventListener('load', function () {
+            if (sessionStorage.getItem(AUTO_PLAY_KEY) === 'true') {
+                updateAutoPlayUI(true);
+                playCurrentAyahAudio();
+            }
+        });
+
+        // Auto-advance: only acts if auto-play is still flagged as running at the
+        // moment playback actually finishes (so a manual Stop/Previous/Next click,
+        // which clears the flag first, prevents this from firing even if the
+        // audio happens to finish shortly after).
+        ayahAudio.addEventListener('ended', function () {
+            if (sessionStorage.getItem(AUTO_PLAY_KEY) !== 'true') {
+                return;
+            }
+
+            // #nextAyahLink is the real Next link from the nav row below - reusing
+            // its href is exactly the navigation the Next button itself uses, and
+            // Jinja only renders it when a next Ayah actually exists, so its
+            // absence here is how the last Ayah is detected.
+            const nextLink = document.getElementById('nextAyahLink');
+            if (nextLink) {
+                window.location.href = nextLink.href;
+            } else {
+                // reached the last Ayah in the Surah - stop here rather than
+                // trying to navigate past it
+                clearAutoPlay();
+            }
+        });
+
+        // ---------- Recording (Record button + mic capture) ----------
+        // mediaRecorder drives the active recording (null when nothing is being
+        // recorded). recordedChunks collects the raw audio data as it comes in;
+        // once recording stops they're combined into recordedBlob - held in
+        // memory only for now, this is what gets sent to the backend once the
+        // Submit Recitation step exists. micStream is the raw microphone
+        // MediaStream, kept around so its tracks can be stopped afterwards to
+        // actually release the microphone. isRecording is checked by stopAudio()
+        // below to decide what Stop should do.
+        let mediaRecorder = null;
+        let recordedChunks = [];
+        let recordedBlob = null;
+        let micStream = null;
+        let isRecording = false;
+
+        const recordBtn = document.getElementById('recordBtn');
+        const recordLabel = document.getElementById('recordLabel');
+        const recordingIndicator = document.getElementById('recordingIndicator');
+
+        // ---------- Submit Recitation ----------
+        const submitBtn = document.getElementById('submitBtn');
+        const submitStatus = document.getElementById('submitStatus');
+        const scoreCard = document.getElementById('scoreCard');
+        const scoreCardTitle = document.getElementById('scoreCardTitle');
+        const scorePercent = document.getElementById('scorePercent');
+        const scoreFraction = document.getElementById('scoreFraction');
+        const scoreRatingWord = document.getElementById('scoreRatingWord');
+
+        // Surah Score card - always visible (server-rendered from surah_score/
+        // surah_status), refreshed in place after each submission below since
+        // the Surah average changes too
+        const surahScoreCardTitle = document.getElementById('surahScoreCardTitle');
+        const surahScorePercent = document.getElementById('surahScorePercent');
+        const surahScoreStatusWord = document.getElementById('surahScoreStatusWord');
+
+        // mirrors SURAH_STATUS_RATING_CLASS in app.py - same status word ->
+        // .rating-* colour mapping used when the page is first rendered, kept
+        // here too since the post-submission update happens purely in JS
+        const SURAH_STATUS_RATING_CLASS = {
+            'Completed': 'rating-good',
+            'In Progress': 'rating-satisfactory',
+            'Not Started': 'rating-not-attempted'
+        };
+
+        // the Ayah this page was loaded for - used in the fetch URL below, to find
+        // this Ayah's label in the list once a rating comes back, and to build the
+        // next Ayah's audio URL for prefetching (see below)
+        const currentAyahNumber = {{ current_ayah_number }};
+
+        // ---------- Prefetch next Ayah's audio (Play Full Surah) ----------
+        // While auto-play is running, most of the pause after each auto-advance is
+        // the next Ayah's mp3 having to be freshly downloaded from everyayah.com
+        // after the page reload. Adding a <link rel="prefetch"> hint to <head> as
+        // soon as the current Ayah starts playing - rather than waiting until it's
+        // about to end - gives the browser this entire Ayah's playback time to
+        // fetch the next one in the background, so by the time 'ended' navigates
+        // there it's often already cached.
+        //
+        // Hooked on ayahAudio's own 'play' event (fires for manual Play too, but
+        // only actually prefetches while autoPlaySurah is set) rather than added
+        // inside togglePlayPause()/playCurrentAyahAudio(), so neither of those -
+        // or the 'ended' listener's navigation logic - needs to change at all.
+        // alreadyPrefetchedNextAyah guards against adding a duplicate <link> if
+        // playback is paused/resumed more than once on the same Ayah.
+        let alreadyPrefetchedNextAyah = false;
+
+        ayahAudio.addEventListener('play', function () {
+            if (alreadyPrefetchedNextAyah || sessionStorage.getItem(AUTO_PLAY_KEY) !== 'true') {
+                return;
+            }
+
+            // #nextAyahLink only exists when Jinja actually rendered a Next link -
+            // i.e. a next Ayah exists in this Surah - so its absence here means
+            // this is the last Ayah and there's nothing to prefetch
+            const nextLink = document.getElementById('nextAyahLink');
+            if (!nextLink) {
+                return;
+            }
+
+            // ayahAudio.src is built server-side by build_audio_url() in
+            // audio_utils.py: ".../{reciter_folder}/{surah:03d}{ayah:03d}.mp3" -
+            // both numbers zero-padded to 3 digits and concatenated right before
+            // the extension. Swapping the current Ayah's 3-digit segment for the
+            // next Ayah's gives its URL using that exact same src, without needing
+            // to know the reciter's folder name (or rebuild the URL from scratch)
+            // here at all.
+            const nextAyahNumber = currentAyahNumber + 1;
+            const currentAyahSegment = String(currentAyahNumber).padStart(3, '0') + '.mp3';
+            const nextAyahSegment = String(nextAyahNumber).padStart(3, '0') + '.mp3';
+            const nextAudioUrl = ayahAudio.src.replace(currentAyahSegment, nextAyahSegment);
+
+            // Remove any prefetch <link> left over from earlier in this page's
+            // lifetime before adding the new one, so <head> can never end up
+            // holding more than one at a time across a long auto-play session
+            // (in practice each Ayah is its own full page load so <head> starts
+            // fresh anyway, but this also covers pause/resume happening more
+            // than once - guarded above by alreadyPrefetchedNextAyah - without
+            // relying on that guard alone).
+            const existingPrefetchLink = document.getElementById('nextAyahPrefetchLink');
+            if (existingPrefetchLink) {
+                existingPrefetchLink.remove();
+            }
+
+            const prefetchLink = document.createElement('link');
+            prefetchLink.id = 'nextAyahPrefetchLink';
+            prefetchLink.rel = 'prefetch';
+            prefetchLink.href = nextAudioUrl;
+
+            // Fire-and-forget: appendChild just schedules the browser's background
+            // fetch and returns immediately - nothing here (or in the 'ended'
+            // listener above) waits on that fetch to finish before navigating.
+            document.head.appendChild(prefetchLink);
+
+            alreadyPrefetchedNextAyah = true;
+        });
+
+        // Submit Recitation should only ever be clickable when there's an
+        // actual recording sitting in recordedBlob - this keeps the button's
+        // enabled/disabled state in sync with that, called every time
+        // recordedBlob might have changed (new recording started, or one
+        // just finished).
+        function updateSubmitButtonState() {
+            submitBtn.disabled = recordedBlob === null;
+        }
+
+        async function startRecording() {
+            if (isRecording) {
+                return; // already recording - ignore a duplicate click
+            }
+
+            // playback and recording shouldn't run at the same time - if the
+            // reference Ayah audio is currently playing, stop it first
+            if (!ayahAudio.paused) {
+                stopAudio();
+            }
+
+            try {
+                micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            } catch (err) {
+                // covers permission denied (NotAllowedError), no microphone
+                // present (NotFoundError), etc. - surface a clear message
+                // instead of failing silently
+                alert(
+                    'Microphone access is required to record your recitation. ' +
+                    'Please allow microphone access and try again.'
+                );
+                return;
+            }
+
+            recordedChunks = [];
+            recordedBlob = null;
+
+            // a fresh recording is starting, so any previous recording's
+            // Submit button/status no longer apply - reset both
+            updateSubmitButtonState();
+            submitStatus.textContent = '';
+            submitStatus.className = 'submit-status';
+
+            mediaRecorder = new MediaRecorder(micStream);
+
+            // MediaRecorder hands back audio data in chunks as it records -
+            // collect each one, then assemble them into a single Blob in onstop
+            mediaRecorder.ondataavailable = function (event) {
+                if (event.data.size > 0) {
+                    recordedChunks.push(event.data);
+                }
+            };
+
+            mediaRecorder.onstop = function () {
+                // only build a Blob if audio data was actually captured
+                if (recordedChunks.length === 0) {
+                    alert('No audio was recorded. Please try again.');
+                } else {
+                    recordedBlob = new Blob(recordedChunks, { type: 'audio/webm' });
+                }
+
+                // release the microphone now that recording has finished
+                micStream.getTracks().forEach(function (track) { track.stop(); });
+
+                isRecording = false;
+                recordBtn.disabled = false;
+                recordLabel.textContent = 'Record';
+                recordingIndicator.style.display = 'none';
+
+                // recordedBlob is now set (or still null, if nothing was
+                // captured) - update Submit Recitation to match
+                updateSubmitButtonState();
+            };
+
+            mediaRecorder.start();
+            isRecording = true;
+
+            // clear visual feedback that recording is active: label change +
+            // pulsing red dot, and disable Record itself so it can't be
+            // clicked again mid-recording
+            recordBtn.disabled = true;
+            recordLabel.textContent = 'Recording...';
+            recordingIndicator.style.display = 'inline-block';
+        }
+
+        // ---------- Stop button (dual-purpose) ----------
+        // What Stop does now depends on what's currently active:
+        //  - if a recording is in progress, Stop ends the recording -
+        //    mediaRecorder.stop() triggers the onstop handler above, which
+        //    assembles recordedBlob and releases the microphone
+        //  - otherwise, Stop keeps its original behaviour: pause the reference
+        //    audio and reset it back to the beginning (unlike Pause, which just
+        //    freezes playback wherever it is, leaving currentTime untouched)
+        function stopAudio() {
+            if (isRecording) {
+                mediaRecorder.stop();
+                return;
+            }
+
+            ayahAudio.pause();
+            ayahAudio.currentTime = 0;
+
+            // audio is no longer playing either way, so the Play/Pause button's
+            // label always goes back to "Play" (same as the "ended" handler above)
+            playPauseBtn.textContent = 'Play';
+
+            // pressing Stop counts as the user manually interrupting playback, so
+            // any Play Full Surah auto-advance chain currently running is cancelled
+            clearAutoPlay();
+        }
+
+        // Uploads recordedBlob to the backend for this exact Surah/Ayah. The
+        // button is disabled whenever recordedBlob is null, so in practice this
+        // only runs once a recording exists - the check here is just a defensive
+        // guard in case it's ever triggered another way.
+        async function submitRecitation() {
+            if (!recordedBlob) {
+                return;
+            }
+
+            // clear feedback that the upload is in progress, and disable the
+            // button so a slow connection can't lead to duplicate submissions
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Submitting...';
+            submitStatus.textContent = '';
+            submitStatus.className = 'submit-status';
+
+            // a fresh attempt is starting - hide any score card left over from a
+            // previous submission of this same Ayah so it can't be mistaken for
+            // this attempt's result while it's in flight
+            scoreCard.style.display = 'none';
+
+            // FormData + Blob under the "recording" field name matches exactly
+            // what the /submit_recitation/<surah_id>/<ayah_number> route reads
+            // on the backend via request.files['recording']. Giving it a
+            // filename here ("recording.webm") ensures the upload always
+            // arrives with a proper extension, since a bare Blob has none.
+            const formData = new FormData();
+            formData.append('recording', recordedBlob, 'recording.webm');
+
+            try {
+                const response = await fetch('/submit_recitation/{{ surah.id }}/' + currentAyahNumber,
+                { method: 'POST', body: formData }
+                );
+
+                // fetch() only rejects on a genuine network failure - an HTTP
+                // error status (400, 500, ...) still resolves successfully, so
+                // it has to be checked explicitly via response.ok. Try to pull
+                // the server's own error message out of the JSON body (that's
+                // what /submit_recitation returns on a 400) so the status code
+                // isn't the only thing shown - falls back to just the status
+                // if the body isn't JSON (e.g. a raw 500 traceback page).
+                if (!response.ok) {
+                    let detail = 'status ' + response.status;
+                    try {
+                        const errorBody = await response.json();
+                        if (errorBody && errorBody.error) {
+                            detail = errorBody.error;
+                        }
+                    } catch (parseErr) {
+                        // response body wasn't JSON - stick with the status code
+                    }
+                    throw new Error(detail);
+                }
+
+                // pull weighted_score/rating (and now surah_score/surah_status) out
+                // of the success body - submit_recitation() in app.py sends all of
+                // these back alongside success/filename on a 200
+                const result = await response.json();
+                const ratingClass = 'rating-' + result.rating.toLowerCase();
+
+                // update just this Ayah's label in the list - every other Ayah's
+                // label is left untouched, still showing whatever it currently shows
+                const ratingLabel = document.querySelector(
+                    '.ayah-rating[data-ayah-number="' + currentAyahNumber + '"]'
+                );
+                if (ratingLabel) {
+                    ratingLabel.textContent = result.rating;
+                    ratingLabel.className = 'ayah-rating ' + ratingClass;
+                }
+
+                // fill in and reveal the Ayah Score card for this submission
+                scorePercent.textContent = result.weighted_score;
+                scoreFraction.textContent = result.weighted_score;
+                scoreRatingWord.textContent = result.rating;
+                scoreRatingWord.className = ratingClass;
+                scoreCardTitle.className = 'score-card-title ' + ratingClass;
+                scoreCard.style.display = 'block';
+
+                // the Surah average/status changed too (this Ayah's new score is
+                // already factored in - submit_recitation() recalculated both
+                // server-side after persisting it) - refresh the Surah Score card
+                // the same way, rather than a second request to recompute it here
+                const surahRatingClass = SURAH_STATUS_RATING_CLASS[result.surah_status] || 'rating-not-attempted';
+                surahScorePercent.textContent = result.surah_score;
+                surahScoreStatusWord.textContent = result.surah_status;
+                surahScoreStatusWord.className = surahRatingClass;
+                surahScoreCardTitle.className = 'score-card-title ' + surahRatingClass;
+
+                // submission finished successfully - undo the "Submitting..."
+                // disabled state from above so the button doesn't stay stuck on it
+                // forever (the catch block below already did this for the error
+                // case, but the success path never had a matching reset)
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit Recitation';
+            } catch (err) {
+                console.error(err);
+
+                // the "recording too short" case (from app.py's
+                // submit_recitation(), when there's too little/no actual
+                // audio for ffmpeg to decode) is already a clear, complete,
+                // user-facing message on its own - showing it plain, rather
+                // than wrapped in the generic "Failed to submit recitation:"
+                // prefix every other error still gets
+                submitStatus.textContent = err.message === 'Recording too short, please try again'
+                    ? err.message
+                    : 'Failed to submit recitation: ' + err.message;
+
+                submitStatus.className = 'submit-status error';
+
+                // submission failed, so let the user try again instead of
+                // leaving the button stuck disabled on "Submitting..."
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit Recitation';
+            }
+        }
+    </script>
+</body>
+</html>

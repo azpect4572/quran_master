@@ -1,0 +1,8 @@
+Flask>=3.0.3
+Flask-SQLAlchemy>=3.1.1
+requests>=2.32.3
+numpy>=2.1.0
+pydub==0.25.1
+audioop-lts; python_version >= "3.13"
+librosa>=0.10.2
+gunicorn>=22.0.0

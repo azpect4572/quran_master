@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Surah Search - Quran Master</title>
+    <style>
+        /* same palette/fonts as home.html, so this page matches the site's visual style */
+        :root {
+            --indigo: #6366f1;
+            --indigo-dark: #4f46e5;
+            --blue-dark: #1d3f8a;
+            --lavender-bg: #eef1fb;
+            --lavender-border: #dcdff2;
+            --grey-text: #6b7280;
+            --page-bg: #f4f5fa;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: var(--page-bg);
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        /* everything sits in a centred, max-width column */
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 30px 24px 60px;
+        }
+
+        /* small link back to the homepage, sits above the heading */
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: var(--indigo-dark);
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        /* heading - same serif font/colour as the "Quran Master" heading on the homepage */
+        h1 {
+            font-family: Georgia, 'Times New Roman', serif;
+            color: var(--indigo-dark);
+            font-size: 2.2rem;
+            text-align: center;
+            margin: 0 0 28px;
+        }
+
+        /* ---------- search box: pill-shaped input + icon + submit button ---------- */
+        .search-form {
+            display: flex;
+            gap: 12px;
+            max-width: 560px;
+            margin: 0 auto 40px;
+        }
+
+        .search-input-wrap {
+            position: relative;
+            flex: 1;
+        }
+
+        /* magnifying-glass icon, positioned inside the input on the left */
+        .search-icon {
+            position: absolute;
+            left: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--grey-text);
+            font-size: 1rem;
+            pointer-events: none;
+        }
+
+        #searchInput {
+            width: 100%;
+            padding: 14px 20px 14px 44px; /* extra left padding makes room for the icon */
+            font-size: 1rem;
+            font-family: inherit;
+            border: 1.5px solid var(--lavender-border);
+            background: var(--lavender-bg);
+            border-radius: 999px; /* pill shape */
+        }
+
+        #searchInput::placeholder {
+            color: #8a90b8;
+        }
+
+        #searchInput:focus {
+            outline: none;
+            border-color: var(--indigo);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+        }
+
+        .search-btn {
+            padding: 14px 28px;
+            border: none;
+            border-radius: 999px;
+            background: var(--indigo);
+            color: #ffffff;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+
+        .search-btn:hover {
+            background: var(--indigo-dark);
+        }
+
+        /* ---------- responsive Surah grid ---------- */
+        /* auto-fill + minmax gives 3-4 columns depending on screen width,
+           instead of a fixed column count */
+        .surah-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+            gap: 20px;
+        }
+
+        /* card is an <a> tag now (links to /recitation/<id>) - these properties
+           reset the default link styling (colour, underline) so it still looks
+           exactly like a plain card rather than a typical blue underlined link */
+        .surah-card {
+            display: block;
+            background: #ffffff;
+            border: 1px solid var(--lavender-border);
+            border-radius: 14px;
+            box-shadow: 0 4px 16px rgba(79, 70, 229, 0.08);
+            padding: 18px;
+            color: inherit;
+            text-decoration: none;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .surah-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 22px rgba(79, 70, 229, 0.16);
+        }
+
+        .surah-card .top-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* numbered circular badge - the Surah id, top-left of the card */
+        .surah-number {
+            background: var(--indigo);
+            color: #ffffff;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        /* Arabic name - top-right of the card */
+        .surah-card .arabic-name {
+            font-size: 1.3rem;
+            color: var(--blue-dark);
+        }
+
+        /* English name below the top row */
+        .surah-card .english-name {
+            font-family: Georgia, 'Times New Roman', serif;
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin-top: 12px;
+        }
+
+        /* this Surah's average score, from calculate_surah_score() */
+        .surah-card .score-line {
+            margin-top: 6px;
+            color: var(--indigo-dark);
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .no-results {
+            text-align: center;
+            color: var(--grey-text);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a class="back-link" href="/">&larr; Back to Main Menu</a>
+
+        <h1>Surah Search</h1>
+
+        <!-- plain GET form - unchanged behaviour, just restyled. Submitting it
+             reloads /surahs?q=... exactly as before -->
+        <form class="search-form" action="/surahs" method="get">
+            <div class="search-input-wrap">
+                <span class="search-icon">&#128269;</span>
+                <input type="text" id="searchInput" name="q" value="{{ search_term or '' }}" placeholder="Search by surah name or number...">
+            </div>
+            <button class="search-btn" type="submit">Search</button>
+        </form>
+
+        <!-- responsive card grid - one card per Surah passed in from the route.
+             Each card is now a whole-card <a> link to /recitation/<surah.id> -
+             the route defaults to Ayah 1 on its own, so no "ayah" query param
+             is needed here. .surah-card's CSS strips the default link styling
+             so it still reads as a plain card, not a blue underlined link. -->
+        {% if surahs %}
+        <div class="surah-grid">
+            {% for surah in surahs %}
+            <a class="surah-card" href="/recitation/{{ surah.id }}">
+                <div class="top-row">
+                    <div class="surah-number">{{ surah.id }}</div>
+                    <div class="arabic-name">{{ surah.arabic_name }}</div>
+                </div>
+                <div class="english-name">{{ surah.surah_name }}</div>
+                <!-- this Surah's overall average, from calculate_surah_score()
+                     via surah_scores (built in the surah_selection() route) -
+                     0% for a Surah with no attempted Ayahs, same as everywhere
+                     else this score is shown -->
+                <div class="score-line">Score: {{ '%.1f'|format(surah_scores.get(surah.id, 0)) }}%</div>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="no-results">Invalid input. Please enter a Surah name or number</p>
+        {% endif %}
+    </div>
+</body>
+</html>

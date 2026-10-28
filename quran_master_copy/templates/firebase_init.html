@@ -1,0 +1,16 @@
+<!-- Firebase Web SDK (project quran-c279f). Paste before </body> in each template, or {% include 'firebase_init.html' %} -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-analytics.js";
+  const firebaseConfig = {
+    apiKey: "AIzaSyDwhbJ6KdicThifs3qQGHAPPxgwSaXcAxs",
+    authDomain: "quran-c279f.firebaseapp.com",
+    projectId: "quran-c279f",
+    storageBucket: "quran-c279f.firebasestorage.app",
+    messagingSenderId: "872461196843",
+    appId: "1:872461196843:web:904520eb9ec91f1ffe546e",
+    measurementId: "G-2ZZ123C1ZF"
+  };
+  const app = initializeApp(firebaseConfig);
+  try { getAnalytics(app); } catch (e) { console.warn("Analytics blocked:", e); }
+</script>

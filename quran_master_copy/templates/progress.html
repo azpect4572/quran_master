@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Progress Tracker - Quran Master</title>
+
+    <style>
+        /* same palette/fonts as the rest of the site (home.html,
+           surah_selection.html, recitation.html), so this page matches */
+        :root {
+            --indigo: #6366f1;
+            --indigo-dark: #4f46e5;
+            --blue-dark: #1d3f8a;
+            --lavender-bg: #eef1fb;
+            --lavender-border: #dcdff2;
+            --grey-text: #6b7280;
+            --page-bg: #f4f5fa;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        /* pinned to exactly the viewport height with overflow hidden, same
+           technique as recitation.html - only the two scrollable lists
+           further down (.surah-progress-list / .ayah-breakdown-list) get
+           their own internal scrollbar, the page itself never grows even
+           though there are 114 Surahs and (for the longest Surah) 286 Ayahs */
+        html, body {
+            height: 100%;
+            margin: 0;
+        }
+
+        body {
+            overflow: hidden;
+            background: var(--page-bg);
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        .container {
+            max-width: 1100px;
+            height: 100vh;
+            margin: 0 auto;
+            padding: 30px 24px 20px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* same back-link styling as "Back to Surah Search" on the
+           recitation page */
+        .top-bar {
+            flex-shrink: 0;
+            margin-bottom: 16px;
+        }
+
+        .back-link {
+            display: inline-block;
+            color: var(--indigo-dark);
+            font-weight: 600;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        h1 {
+            flex-shrink: 0;
+            font-family: Georgia, 'Times New Roman', serif;
+            color: var(--indigo-dark);
+            font-size: 2.2rem;
+            text-align: center;
+            margin: 0 0 20px;
+        }
+
+        /* ---------- four summary stat cards ---------- */
+        /* same card chrome (white background, lavender border, radius,
+           shadow) as the Ayah Score / Surah Score cards on the recitation
+           page's .score-card - just holding a big number + label instead
+           of a title/detail pair, since these aren't tied to one Ayah/Surah */
+        .stat-cards-row {
+            flex-shrink: 0;
+            display: flex;
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            flex: 1;
+            background: #ffffff;
+            border: 1px solid var(--lavender-border);
+            border-radius: 14px;
+            box-shadow: 0 4px 16px rgba(79, 70, 229, 0.08);
+            padding: 16px 18px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--indigo-dark);
+            line-height: 1.2;
+        }
+
+        .stat-label {
+            margin-top: 4px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--grey-text);
+        }
+
+        /* ---------- shared rating colours - same values as recitation.html,
+           reused here for both Surah status (Completed/In Progress/Not
+           Started) and Ayah status (Good/Satisfactory/Weak/Not Attempted) ---------- */
+        .rating-good {
+            color: #15803d;
+        }
+
+        .rating-satisfactory {
+            color: #b45309;
+        }
+
+        .rating-weak {
+            color: #b91c1c;
+        }
+
+        .rating-not-attempted {
+            color: var(--grey-text);
+        }
+
+        .ayah-rating {
+            flex-shrink: 0;
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 0.75rem;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .ayah-rating.rating-good {
+            background: rgba(21, 128, 61, 0.12);
+        }
+
+        .ayah-rating.rating-satisfactory {
+            background: rgba(180, 83, 9, 0.12);
+        }
+
+        .ayah-rating.rating-weak {
+            background: rgba(185, 28, 28, 0.12);
+        }
+
+        .ayah-rating.rating-not-attempted {
+            background: rgba(107, 114, 128, 0.12);
+        }
+
+        /* ---------- two-column layout ---------- */
+        /* flex: 1 takes up whatever vertical space is left below the stat
+           cards; min-height: 0 is what lets its children actually shrink
+           enough to scroll internally instead of overflowing the page
+           (same reasoning as .ayah-list on the recitation page) */
+        .progress-columns {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            gap: 20px;
+        }
+
+        .progress-column {
+            flex: 1;
+            min-width: 0;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            background: #ffffff;
+            border: 1px solid var(--lavender-border);
+            border-radius: 14px;
+            box-shadow: 0 4px 16px rgba(79, 70, 229, 0.08);
+            padding: 18px;
+        }
+
+        .progress-column h2 {
+            flex-shrink: 0;
+            margin: 0 0 12px;
+            font-family: Georgia, 'Times New Roman', serif;
+            color: var(--indigo-dark);
+            font-size: 1.25rem;
+        }
+
+        /* ---------- Surah Progress column (left) ---------- */
+        /* scrolls internally rather than growing the page - same technique
+           as .ayah-list on the recitation page (flex: 1 + min-height: 0 +
+           overflow-y: auto inside a height-constrained ancestor chain) */
+        .surah-progress-list {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .surah-progress-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1.5px solid transparent;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+
+        .surah-progress-row:hover {
+            background: var(--lavender-bg);
+        }
+
+        /* marks whichever Surah is currently loaded in the right-hand
+           column - toggled in JS by selectSurah() below */
+        .surah-progress-row.selected {
+            background: var(--lavender-bg);
+            border-color: var(--indigo);
+        }
+
+        .surah-progress-name {
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+
+        .surah-progress-score {
+            flex-shrink: 0;
+            color: var(--grey-text);
+            font-size: 0.85rem;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        /* ---------- Ayah Breakdown column (right) ---------- */
+        .breakdown-placeholder {
+            color: var(--grey-text);
+            font-size: 0.9rem;
+            text-align: center;
+            margin: 24px 0;
+        }
+
+        .ayah-breakdown-list {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .ayah-breakdown-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            border-radius: 10px;
+            background: var(--page-bg);
+        }
+
+        .ayah-breakdown-number {
+            flex-shrink: 0;
+            background: var(--indigo);
+            color: #ffffff;
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        .ayah-breakdown-score {
+            flex: 1;
+            color: var(--grey-text);
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        /* ---------- Needs Practice - fixed below the breakdown list, not
+           part of its scroll area, same way the recitation page's control
+           bar sits fixed below .ayah-list ---------- */
+        .needs-practice-section {
+            flex-shrink: 0;
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px solid var(--lavender-border);
+        }
+
+        .needs-practice-section h3 {
+            margin: 0 0 10px;
+            font-size: 1rem;
+            color: var(--blue-dark);
+        }
+
+        .needs-practice-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            max-height: 160px;
+            overflow-y: auto;
+        }
+
+        .needs-practice-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 10px;
+            border-radius: 8px;
+            background: rgba(185, 28, 28, 0.06);
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="top-bar">
+            <a class="back-link" href="/">&larr; Back to Home</a>
+        </div>
+
+        <h1>Progress Tracker</h1>
+
+        <!-- Four summary stats from get_tracker_statistics() (Part 5) -
+             average_surah_score/over_80_count/under_40_count only ever
+             reflect started Surahs, per that function's own rules -->
+        <div class="stat-cards-row">
+            <div class="stat-card">
+                <div class="stat-number">{{ stats.completed_count }}</div>
+                <div class="stat-label">Surahs Completed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{{ '%.1f'|format(stats.average_surah_score) }}%</div>
+                <div class="stat-label">Average Score</div>
+            </div>
+            <div class="stat-card">
+                <!-- rating-good reuses the same green already used for a
+                     "Good" Ayah rating elsewhere on the site (.rating-good,
+                     defined further down) - it's defined after .stat-number
+                     in this stylesheet, so it wins the cascade here -->
+                <div class="stat-number rating-good">{{ stats.over_80_count }}</div>
+                <div class="stat-label">Over 80%</div>
+            </div>
+            <div class="stat-card">
+                <!-- same idea, reusing the existing "Weak" red (.rating-weak) -->
+                <div class="stat-number rating-weak">{{ stats.under_40_count }}</div>
+                <div class="stat-label">Under 40%</div>
+            </div>
+        </div>
+
+        <div class="progress-columns">
+            <!-- Surah Progress - every Surah from the route (surah_progress,
+                 built from calculate_surah_score()/get_surah_status() -
+                 Parts 3/4), clickable to load its breakdown on the right -->
+            <div class="progress-column">
+                <h2>Surah Progress</h2>
+                <div class="surah-progress-list">
+                    {% for surah in surah_progress %}
+                    <div class="surah-progress-row" data-surah-id="{{ surah.id }}" onclick="selectSurah({{ surah.id }})">
+                        <span class="surah-progress-name">{{ surah.surah_name }}</span>
+                        <span class="surah-progress-score">{{ '%.1f'|format(surah.score) }}%</span>
+                        <span class="ayah-rating {{ surah.status_class }}">{{ surah.status }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Ayah Breakdown - empty until a Surah on the left is clicked,
+                 then filled in by selectSurah() below via fetch() to
+                 /progress/ayah_breakdown/<surah_id> (Parts 6, get_ayah_breakdown()/
+                 get_weak_ayahs()), without a full page reload -->
+            <div class="progress-column">
+                <h2>Ayah Breakdown</h2>
+                <p id="breakdownPlaceholder" class="breakdown-placeholder">
+                    Select a Surah on the left to see its Ayah-by-Ayah breakdown.
+                </p>
+                <div id="ayahBreakdownList" class="ayah-breakdown-list" style="display: none;"></div>
+
+                <div class="needs-practice-section">
+                    <h3>Needs Practice</h3>
+                    <div id="needsPracticeList" class="needs-practice-list">
+                        <p class="breakdown-placeholder">Select a Surah to see its weakest Ayahs.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const breakdownPlaceholder = document.getElementById('breakdownPlaceholder');
+        const ayahBreakdownList = document.getElementById('ayahBreakdownList');
+        const needsPracticeList = document.getElementById('needsPracticeList');
+
+        // builds one row of the Ayah Breakdown list - number badge, score,
+        // and a status pill reusing the same .rating-* colour classes the
+        // recitation page's Ayah cards already use (Good/Satisfactory/Weak/
+        // Not Attempted -> rating-good/rating-satisfactory/rating-weak/
+        // rating-not-attempted)
+        function buildAyahBreakdownRow(entry) {
+            const row = document.createElement('div');
+            row.className = 'ayah-breakdown-row';
+
+            const number = document.createElement('span');
+            number.className = 'ayah-breakdown-number';
+            number.textContent = entry.ayah_number;
+
+            const score = document.createElement('span');
+            score.className = 'ayah-breakdown-score';
+            score.textContent = 'Score: ' + entry.score + '%';
+
+            const statusClass = 'rating-' + entry.status.toLowerCase().replace(' ', '-');
+            const status = document.createElement('span');
+            status.className = 'ayah-rating ' + statusClass;
+            status.textContent = entry.status;
+
+            row.appendChild(number);
+            row.appendChild(score);
+            row.appendChild(status);
+            return row;
+        }
+
+        // builds one row of the Needs Practice list - just the Ayah number
+        // and its score, no status pill (they're all "Weak"/low-scoring by
+        // definition here)
+        function buildNeedsPracticeRow(entry) {
+            const row = document.createElement('div');
+            row.className = 'needs-practice-row';
+
+            const label = document.createElement('span');
+            label.textContent = 'Ayah ' + entry.ayah_number;
+
+            const score = document.createElement('span');
+            score.textContent = entry.score + '%';
+
+            row.appendChild(label);
+            row.appendChild(score);
+            return row;
+        }
+
+        // Clicking a Surah in the left column loads its breakdown + weak
+        // Ayahs into the right column via fetch(), rather than a full page
+        // reload - highlights the clicked row, shows a brief loading state,
+        // then fills in both the Ayah Breakdown list and Needs Practice
+        // section (or an explanatory message if the Surah has no attempted
+        // Ayahs at all).
+        async function selectSurah(surahId) {
+            document.querySelectorAll('.surah-progress-row').forEach(function (row) {
+                row.classList.toggle('selected', row.dataset.surahId === String(surahId));
+            });
+
+            breakdownPlaceholder.textContent = 'Loading...';
+            breakdownPlaceholder.style.display = 'block';
+            ayahBreakdownList.style.display = 'none';
+            ayahBreakdownList.textContent = '';
+            needsPracticeList.textContent = '';
+
+            try {
+                const response = await fetch('/progress/ayah_breakdown/' + surahId);
+                if (!response.ok) {
+                    throw new Error('status ' + response.status);
+                }
+                const data = await response.json();
+
+                breakdownPlaceholder.style.display = 'none';
+                ayahBreakdownList.style.display = 'flex';
+                ayahBreakdownList.textContent = '';
+                data.breakdown.forEach(function (entry) {
+                    ayahBreakdownList.appendChild(buildAyahBreakdownRow(entry));
+                });
+
+                needsPracticeList.textContent = '';
+                if (data.weak_ayahs.length === 0) {
+                    const message = document.createElement('p');
+                    message.className = 'breakdown-placeholder';
+                    message.textContent = 'No Ayahs have been attempted in this Surah yet.';
+                    needsPracticeList.appendChild(message);
+                } else {
+                    data.weak_ayahs.forEach(function (entry) {
+                        needsPracticeList.appendChild(buildNeedsPracticeRow(entry));
+                    });
+                }
+            } catch (err) {
+                console.error(err);
+                breakdownPlaceholder.textContent = "Couldn't load this Surah's breakdown. Please try again.";
+                breakdownPlaceholder.style.display = 'block';
+                ayahBreakdownList.style.display = 'none';
+                needsPracticeList.textContent = '';
+            }
+        }
+    </script>
+</body>
+</html>

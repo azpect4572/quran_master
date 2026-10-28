@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quran Master</title>
+    <style>
+        :root {
+            --indigo: #6366f1;
+            --indigo-dark: #4f46e5;
+            --blue-dark: #1d3f8a;
+            --lavender-bg: #eef1fb;
+            --lavender-border: #dcdff2;
+            --grey-text: #6b7280;
+            --page-bg: #f4f5fa; /* plain background the card sits on top of */
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        /* plain page background, decorative strips sit on top of this via
+           fixed-position pseudo elements so they run the full height of the page */
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: var(--page-bg);
+            font-family: Arial, Helvetica, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* decorative geometric star pattern running down the left and right
+           edges of the page, outside the card - subtle, low-opacity, tiled */
+        body::before,
+        body::after {
+            content: "";
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            width: 64px;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40"><polygon points="11,11 29,11 29,29 11,29" fill="none" stroke="%236366f1" stroke-width="1" opacity="0.45"/><polygon points="20,7 33,20 20,33 7,20" fill="none" stroke="%236366f1" stroke-width="1" opacity="0.45"/></svg>');
+            background-repeat: repeat-y;
+            background-position: center;
+            pointer-events: none; /* purely decorative, must not block clicks */
+        }
+
+        body::before { left: 0; }
+        body::after { right: 0; }
+
+        /* centred card holding the title, buttons and tagline */
+        .card {
+            position: relative;
+            background: #ffffff;
+            border: 1px solid var(--lavender-border);
+            border-radius: 16px;
+            box-shadow: 0 8px 28px rgba(79, 70, 229, 0.12);
+            padding: 48px 56px;
+            width: 340px;
+            text-align: center;
+        }
+
+        /* elegant serif heading in an indigo/blue colour */
+        h1 {
+            font-family: Georgia, 'Times New Roman', serif;
+            color: var(--indigo-dark);
+            font-size: 2.4rem;
+            margin: 0 0 28px;
+        }
+
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        /* three stacked rounded buttons - solid indigo with white text, with a hover effect */
+        .btn {
+            display: block;
+            padding: 14px 18px;
+            background: var(--indigo);
+            color: #ffffff;
+            text-decoration: none;
+            font-size: 1rem;
+            font-weight: bold;
+            border-radius: 10px;
+            transition: background 0.15s ease, transform 0.15s ease;
+        }
+
+        .btn:hover {
+            background: var(--indigo-dark);
+            transform: translateY(-2px);
+        }
+
+        /* tagline beneath the buttons, same serif family as the heading, smaller */
+        .tagline {
+            font-family: Georgia, 'Times New Roman', serif;
+            color: var(--grey-text);
+            font-size: 0.95rem;
+            margin: 22px 0 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Quran Master</h1>
+
+        <!-- links to /surahs, /progress and /help - none of these routes exist
+             yet, these are just the links (same targets as previous iterations) -->
+        <div class="button-group">
+            <a class="btn" href="/surahs">Surah Search</a>
+            <a class="btn" href="/progress">Progress Tracker</a>
+            <a class="btn" href="/help">Help</a>
+        </div>
+
+        <p class="tagline">Improve your recitation today!</p>
+    </div>
+</body>
+</html>

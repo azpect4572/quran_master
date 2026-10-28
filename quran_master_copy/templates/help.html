@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Help - Quran Master</title>
+
+    <style>
+        /* same palette/fonts as the rest of the site (home.html,
+           surah_selection.html, recitation.html, progress.html) */
+        :root {
+            --indigo: #6366f1;
+            --indigo-dark: #4f46e5;
+            --blue-dark: #1d3f8a;
+            --lavender-bg: #eef1fb;
+            --lavender-border: #dcdff2;
+            --grey-text: #6b7280;
+            --page-bg: #f4f5fa;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        /* a plain static page - unlike recitation.html/progress.html, there's
+           no internal list that needs its own scrollbar here, so the page
+           just flows and scrolls normally (same as surah_selection.html) */
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: var(--page-bg);
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 30px 24px 60px;
+        }
+
+        /* same back-link styling as "Back to Surah Search"/"Back to Home"
+           on the recitation and progress pages */
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: var(--indigo-dark);
+            font-weight: 600;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        h1 {
+            font-family: Georgia, 'Times New Roman', serif;
+            color: var(--indigo-dark);
+            font-size: 2.2rem;
+            text-align: center;
+            margin: 0 0 8px;
+        }
+
+        .page-intro {
+            text-align: center;
+            color: var(--grey-text);
+            margin: 0 0 30px;
+        }
+
+        /* ---------- one card per help section ---------- */
+        /* same card chrome (white background, lavender border, radius,
+           shadow) used everywhere else in the app - .score-card on the
+           recitation/progress pages, .surah-card on the search page */
+        .help-card {
+            background: #ffffff;
+            border: 1px solid var(--lavender-border);
+            border-radius: 14px;
+            box-shadow: 0 4px 16px rgba(79, 70, 229, 0.08);
+            padding: 20px 24px;
+            margin-bottom: 20px;
+        }
+
+        .help-card h2 {
+            font-family: Georgia, 'Times New Roman', serif;
+            color: var(--indigo-dark);
+            font-size: 1.3rem;
+            margin: 0 0 12px;
+        }
+
+        .help-card p {
+            margin: 0 0 10px;
+            line-height: 1.6;
+            color: #1a1a1a;
+        }
+
+        .help-card p:last-child {
+            margin-bottom: 0;
+        }
+
+        .help-card ol,
+        .help-card ul {
+            margin: 0 0 10px;
+            padding-left: 22px;
+            line-height: 1.6;
+            color: #1a1a1a;
+        }
+
+        .help-card ol:last-child,
+        .help-card ul:last-child {
+            margin-bottom: 0;
+        }
+
+        .help-card li {
+            margin-bottom: 6px;
+        }
+
+        .help-card li:last-child {
+            margin-bottom: 0;
+        }
+
+        /* highlights a button/control name inline in the explanatory text,
+           e.g. "Play", "Record" - same indigo used for buttons/links across
+           the app, just without turning it into a clickable link */
+        .control-name {
+            color: var(--indigo-dark);
+            font-weight: 700;
+        }
+
+        /* ---------- shared rating colours - same values as recitation.html/
+           progress.html, reused here so the rating bands and Surah statuses
+           explained below visually match what's shown on those pages ---------- */
+        .rating-good {
+            color: #15803d;
+        }
+
+        .rating-satisfactory {
+            color: #b45309;
+        }
+
+        .rating-weak {
+            color: #b91c1c;
+        }
+
+        .rating-not-attempted {
+            color: var(--grey-text);
+        }
+
+        .ayah-rating {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .ayah-rating.rating-good {
+            background: rgba(21, 128, 61, 0.12);
+        }
+
+        .ayah-rating.rating-satisfactory {
+            background: rgba(180, 83, 9, 0.12);
+        }
+
+        .ayah-rating.rating-weak {
+            background: rgba(185, 28, 28, 0.12);
+        }
+
+        .ayah-rating.rating-not-attempted {
+            background: rgba(107, 114, 128, 0.12);
+        }
+
+        /* a row explaining one rating band / status - the coloured pill on
+           the left, its meaning as plain text to the right */
+        .rating-explainer-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+
+        .rating-explainer-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .rating-explainer-row .ayah-rating {
+            flex-shrink: 0;
+            min-width: 100px;
+            text-align: center;
+        }
+
+        .rating-explainer-row span.explanation {
+            color: #1a1a1a;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a class="back-link" href="/">&larr; Back to Home</a>
+
+        <h1>Help</h1>
+        <p class="page-intro">A quick guide to using Quran Master.</p>
+
+        <!-- ---------- Getting started ---------- -->
+        <div class="help-card">
+            <h2>Getting Started</h2>
+            <p>
+                From the home page, click <span class="control-name">Surah Search</span> to
+                find the Surah you want to recite. You can search for it either by typing its
+                name (for example "Al-Fatiha") or its number (for example "1") into the search
+                box.
+            </p>
+            <p>
+                Click on any Surah's card to open it. This takes you straight to the first Ayah
+                of that Surah, ready for you to start listening and reciting.
+            </p>
+        </div>
+
+        <!-- ---------- Recitation screen ---------- -->
+        <div class="help-card">
+            <h2>The Recitation Screen</h2>
+            <p>Once you've opened a Surah, four buttons are available for each Ayah:</p>
+            <ul>
+                <li><span class="control-name">Play</span> - listen to the reciter reading this Ayah.</li>
+                <li><span class="control-name">Record</span> - start recording your own voice reciting the Ayah.</li>
+                <li><span class="control-name">Stop</span> - stops whatever is currently happening, whether that's the reciter's audio playing or your own recording.</li>
+                <li><span class="control-name">Submit Recitation</span> - sends your recording off to be scored, once you're happy with it.</li>
+            </ul>
+            <p>The usual order to use them in is:</p>
+            <ol>
+                <li>Press <span class="control-name">Play</span> to listen to the Ayah first.</li>
+                <li>Press <span class="control-name">Record</span> and recite the Ayah yourself.</li>
+                <li>Press <span class="control-name">Stop</span> when you've finished reciting.</li>
+                <li>Press <span class="control-name">Submit Recitation</span> to see your score.</li>
+            </ol>
+        </div>
+
+        <!-- ---------- Reciters ---------- -->
+        <div class="help-card">
+            <h2>Changing the Reciter</h2>
+            <p>
+                At the top of the recitation screen there's a <span class="control-name">Change
+                Reciter</span> dropdown menu. This lets you pick which reciter's voice you want
+                to listen to and learn from.
+            </p>
+            <p>
+                Whoever you pick is used two ways: it's the recitation you hear when you press
+                <span class="control-name">Play</span>, and it's also who your own recitation is
+                compared against when it's scored. Changing reciters will change both.
+            </p>
+        </div>
+
+        <!-- ---------- Play Full Surah ---------- -->
+        <div class="help-card">
+            <h2>Play Full Surah</h2>
+            <p>
+                If you want to listen through a whole Surah without pressing
+                <span class="control-name">Play</span> for every single Ayah, click the small
+                settings cog (&#9881;) icon near the top of the recitation screen, then choose
+                <span class="control-name">Play Full Surah</span>.
+            </p>
+            <p>
+                This plays every Ayah in the Surah in order automatically, moving on to the next
+                one by itself once each Ayah finishes, so you can just sit back and listen.
+            </p>
+        </div>
+
+        <!-- ---------- How scoring works ---------- -->
+        <div class="help-card">
+            <h2>How Scoring Works</h2>
+            <p>
+                When you press <span class="control-name">Submit Recitation</span>, your
+                recording is compared against the reference reciter's audio in three ways: how
+                long it takes to say (duration), how much you pause while reciting (pauses), and
+                how loud your voice is (volume). These three comparisons are combined into a
+                single score out of 100.
+            </p>
+            <p>Your score falls into one of three rating bands:</p>
+            <div class="rating-explainer-row">
+                <span class="ayah-rating rating-good">Good</span>
+                <span class="explanation">Score of 80-100. Great recitation, very close to the reference.</span>
+            </div>
+            <div class="rating-explainer-row">
+                <span class="ayah-rating rating-satisfactory">Satisfactory</span>
+                <span class="explanation">Score of 41-79. A reasonable attempt, with room to improve.</span>
+            </div>
+            <div class="rating-explainer-row">
+                <span class="ayah-rating rating-weak">Weak</span>
+                <span class="explanation">Score of 0-40. Worth practicing this Ayah again.</span>
+            </div>
+        </div>
+
+        <!-- ---------- Progress tracker ---------- -->
+        <div class="help-card">
+            <h2>The Progress Tracker</h2>
+            <p>The Progress Tracker page shows four summary numbers at the top:</p>
+            <ul>
+                <li><strong>Surahs Completed</strong> - how many Surahs you've fully finished with a good score.</li>
+                <li><strong>Average Score</strong> - your average score across every Surah you've started.</li>
+                <li><strong>Over 80%</strong> - how many of your started Surahs are scoring well.</li>
+                <li><strong>Under 40%</strong> - how many of your started Surahs still need more practice.</li>
+            </ul>
+            <p>Each Surah in the list also shows a status:</p>
+            <div class="rating-explainer-row">
+                <span class="ayah-rating rating-good">Completed</span>
+                <span class="explanation">You've attempted every Ayah and your score is high enough.</span>
+            </div>
+            <div class="rating-explainer-row">
+                <span class="ayah-rating rating-satisfactory">In Progress</span>
+                <span class="explanation">You've started this Surah, but haven't finished it yet.</span>
+            </div>
+            <div class="rating-explainer-row">
+                <span class="ayah-rating rating-not-attempted">Not Started</span>
+                <span class="explanation">You haven't attempted any Ayah in this Surah yet.</span>
+            </div>
+            <p>
+                Clicking on a Surah shows its Ayah-by-Ayah breakdown, along with a
+                <strong>Needs Practice</strong> section underneath - this lists the
+                lowest-scoring Ayahs you've already attempted in that Surah, so you know exactly
+                what to practice next.
+            </p>
+        </div>
+
+        <!-- ---------- Troubleshooting ---------- -->
+        <div class="help-card">
+            <h2>Troubleshooting</h2>
+            <p>
+                <strong>My microphone isn't working.</strong> The first time you press
+                <span class="control-name">Record</span>, your browser will ask for permission to
+                use your microphone - make sure you click "Allow". If you accidentally blocked
+                it before, you'll need to open your browser's site settings for this page and
+                allow the microphone there instead.
+            </p>
+            <p>
+                <strong>Submit Recitation won't work.</strong> Your recording needs to actually
+                contain your voice before it can be submitted. If you press
+                <span class="control-name">Record</span> and then <span class="control-name">Stop</span>
+                straight away without saying anything, there's nothing to send - make sure you
+                recite the Ayah before pressing Stop.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
